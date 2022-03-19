@@ -190,8 +190,8 @@ int main(int argc, char *argv[]) {
             cmd8(ins);
         } else if (ins.ins53.cmd < 0b00101) {
             cmd7(ins);
-        // } else if (ins.ins413.cmd < 0b0111) {
-        //     cmd5(ins);
+        } else if (ins.ins413.cmd < 0b0111) {
+            cmd5(ins);
         } else {
             cmd4(ins);
         }
@@ -348,97 +348,95 @@ int cmd7(instruction ins) {
     return 0;
 }
 
-// int cmd5(instruction ins) {
-//     // instruction temp;           ********************* SET UP ADDRESSING MODE
-//     registers temp;
-//     setAAAMode(ins.ins53.aaa, ins);
-//     if (ins.ins53.aaa == 0) {
-//         temp.indexVal = ins.opSpec.address;
-//     } else {
-//         temp.indexVal = g_memory[ins.opSpec.address] * 0x100 + g_memory[ins.opSpec.address + 1];
-//     }
-
-//     switch (ins.ins53.cmd)
-//     {
-//     case 0b00100: // Unary no operation trap
-//         printDebug("\n0001 01nn | NOPn   ");
-//         error("I don't know what this command does");
-//         break;
-//     case 0b00101: // Nonunary no operation trap
-//         printDebug("\n0001 1aaa | NOP    ");
-//         error("I don't know what this command does");
-//         break;
-//     case 0b00110: // Decimal input trap         N Z V                   ***************************************
-//         printDebug("\n0011 0aaa | DECI   ");
-//         if (ins.ins53.aaa == 0b000) {
-//             error("Invalid trap addressing mode.");
-//             return 1;
-//         }
-//         temp.indexVal = getIntFromInpStr();
-//         g_memory[ins.ins53.address] = temp.hilo.hi;
-//         g_memory[ins.ins53.address + 1] = temp.hilo.lo;
-//         break;
-//     case 0b00111: // Decimal output trap                           
-//         printDebug("\n0011 1aaa | DECO   ");
-//         if (ins.ins53.aaa == 0b000) {
-//             error("Invalid trap addressing mode.");
-//             return 1;
-//         }
-//         temp.hilo.hi = g_memory[ins.ins53.address];
-//         temp.hilo.lo = g_memory[ins.ins53.address + 1];
-//         printDebug("\nDecimal output  [");
-//         cout << temp.intVal;
-//         printDebug("]");
-//         break;
-//     case 0b01000: // String output trap
-//         printDebug("\n0100 0aaa | STRO");
-//         printDebug("\nString output  [");
-//         if (ins.ins53.aaa == 0b000) {
-//             error("Invalid trap addressing mode.");
-//             return 1;
-//         }
-//         while (g_memory[ins.ins53.address] != 0) {
-//             cout << (g_memory[ins.ins53.address++]);
-//         }
-//         printDebug("]");
-//         break;
-//     case 0b01001: // Character input
-//         printDebug("\n0100 1aaa | CHARI  ");
-//         if (ins.ins53.aaa == 0b000) {
-//             error("Invalid trap addressing mode.");
-//             return 1;
-//         }
-//         g_memory[ins.ins8.address] = getCharFromInpStr();
-//         break;
-//     case 0b01010: // Character output
-//         printDebug("\n0101 0aaa | CHARO [");
-//         setAAAMode(ins.ins53.aaa, ins);
-//         if (ins.ins53.aaa == 0) {
-//             cout << to_string(ins.opSpec.hilo.lo);
-//         } else {
-//             cout << g_memory[ins.ins8.address];
-//         }
-//         printDebug("]");
-//         break;
-//     case 0b01011: // Return from call with n local bytes
-//         printDebug("\n0101 1aaa | RETn   ");
-//         g_reg[sp].indexVal += ins.ins53.aaa;
-//         g_reg[pc].hilo.hi = g_memory[g_reg[sp].indexVal++];
-//         g_reg[pc].hilo.lo = g_memory[g_reg[sp].indexVal++];
-//         break;
-//     case 0b01100: // Add to stack pointer (SP)
-//         printDebug("\n0110 0aaa | ADDSP  ");
-//         g_reg[sp].indexVal = addShorts(ins.opSpec.imedData, g_reg[sp].indexVal);
-//         break;
-//     case 0b01101: // Subtract from stack pointer (SP)
-//         printDebug("\n0110 1aaa | SUBSP  ");
-//         g_reg[sp].indexVal = addShorts(ins.opSpec.imedData, twosComplement(g_reg[sp].indexVal));
-//         break;
-//     default:
-//         break;
-//     }
-//     return 0;
-// }
+int cmd5(instruction ins) {
+    registers temp;
+    setAAAMode(ins.ins53.aaa, ins);
+    if (ins.ins53.aaa == 0) {
+        temp.indexVal = ins.opSpec.address;
+    } else {
+        temp.indexVal = g_memory[ins.opSpec.address] * 0x100 + g_memory[ins.opSpec.address + 1];
+    }
+    switch (ins.ins53.cmd)
+    {
+    case 0b00100: // Unary no operation trap
+        printDebug("\n0001 01nn | NOPn   ");
+        error("I don't know what this command does");
+        break;
+    case 0b00101: // Nonunary no operation trap
+        printDebug("\n0001 1aaa | NOP    ");
+        error("I don't know what this command does");
+        break;
+    case 0b00110: // Decimal input trap         N Z V                   ***************************************
+        printDebug("\n0011 0aaa | DECI   ");
+        if (ins.ins53.aaa == 0b000) {
+            error("Invalid trap addressing mode.");
+            return 1;
+        }
+        temp.indexVal = getIntFromInpStr();
+        g_memory[ins.ins53.address] = temp.hilo.hi;
+        g_memory[ins.ins53.address + 1] = temp.hilo.lo;
+        break;
+    case 0b00111: // Decimal output trap                           
+        printDebug("\n0011 1aaa | DECO   ");
+        if (ins.ins53.aaa == 0b000) {
+            error("Invalid trap addressing mode.");
+            return 1;
+        }
+        temp.hilo.hi = g_memory[ins.ins53.address];
+        temp.hilo.lo = g_memory[ins.ins53.address + 1];
+        printDebug("\nDecimal output  [");
+        cout << temp.intVal;
+        printDebug("]");
+        break;
+    case 0b01000: // String output trap
+        printDebug("\n0100 0aaa | STRO");
+        printDebug("\nString output  [");
+        if (ins.ins53.aaa == 0b000) {
+            error("Invalid trap addressing mode.");
+            return 1;
+        }
+        while (g_memory[ins.ins53.address] != 0) {
+            cout << (g_memory[ins.ins53.address++]);
+        }
+        printDebug("]");
+        break;
+    case 0b01001: // Character input
+        printDebug("\n0100 1aaa | CHARI  ");
+        if (ins.ins53.aaa == 0b000) {
+            error("Invalid trap addressing mode.");
+            return 1;
+        }
+        g_memory[ins.ins8.address] = getCharFromInpStr();
+        break;
+    case 0b01010: // Character output
+        printDebug("\n0101 0aaa | CHARO [");
+        setAAAMode(ins.ins53.aaa, ins);
+        if (ins.ins53.aaa == 0) {
+            cout << to_string(ins.opSpec.hilo.lo);
+        } else {
+            cout << g_memory[ins.ins8.address];
+        }
+        printDebug("]");
+        break;
+    case 0b01011: // Return from call with n local bytes
+        printDebug("\n0101 1aaa | RETn   ");
+        g_reg[sp].indexVal += ins.ins53.aaa;
+        g_reg[pc].hilo.hi = g_memory[g_reg[sp].indexVal++];
+        g_reg[pc].hilo.lo = g_memory[g_reg[sp].indexVal++];
+        break;
+    case 0b01100: // Add to stack pointer (SP)
+        printDebug("\n0110 0aaa | ADDSP  ");
+        g_reg[sp].indexVal = addShorts(ins.opSpec.imedData, g_reg[sp].indexVal);
+        break;
+    case 0b01101: // Subtract from stack pointer (SP)
+        printDebug("\n0110 1aaa | SUBSP  ");
+        g_reg[sp].indexVal = addShorts(ins.opSpec.imedData, twosComplement(g_reg[sp].indexVal));
+        break;
+    default:
+        break;
+    }
+    return 0;
+}
 
 int cmd4(instruction ins) {
     registers temp;
@@ -704,8 +702,9 @@ unsigned short int getIntFromInpStr() {
     } else {
         g_inputStr = g_inputStr.substr(pos);
     }
-    g_statFlag[V] = (value > 0x10000);
     g_statFlag[N] = (value & 0x8000) == 0x8000;
+    g_statFlag[V] = (value < 0) ^ g_statFlag[N];
+    printDebug("\nDecimal input  [" +  to_string(value) + "]");
     return value % 0x10000;
 }
 
