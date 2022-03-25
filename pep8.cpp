@@ -62,6 +62,7 @@ union instruction
     } ins71;
 };
 
+int g_spStart = 0xFBCF;
 int cmd4(instruction);
 int cmd5(instruction);
 int cmd7(instruction);
@@ -78,10 +79,9 @@ void setNZ(short int);
 unsigned short int getIntFromInpStr();
 void setAAAMode(int, instruction&);
 short int asl(short int);
-void br(int);
 void spPushWord(registers);
-unsigned short int regIndexed(registers, int);
 string intToHexAscii(unsigned int, int);
+void printSp();
 void error(string);
 
 bool g_theEnd = false;
@@ -90,7 +90,6 @@ bool g_debugMode = false;
 string g_inputStr;
 
 int main(int argc, char *argv[]) {
-    cout << "starting" << endl;
     string cFile = "", iFile, tmp, dumpMemStartEnd = "";
     if (argc > 1) {
         int i = 1;
@@ -180,7 +179,7 @@ int main(int argc, char *argv[]) {
     g_reg[pc].indexVal = 0;
     g_reg[a].intVal = 0;
     g_reg[x].intVal = 0;
-    g_reg[sp].indexVal = 0xFBCF;
+    g_reg[sp].indexVal = g_spStart;
 
     printDebug("\n\n******************  Start Execution  ******************\n\n");
     do
@@ -227,58 +226,66 @@ int cmd8(instruction ins) {
 
 int cmd7(instruction ins) {
     registers temp;
+    if (ins.ins71.cmd < 0b0001100) {
+        if (ins.ins71.a == 0b0) {
+            ins.ins71.address = g_memory[g_reg[pc].indexVal] * 0x100 + g_memory[g_reg[pc].indexVal + 1];
+        } else {
+            ins.ins71.address = g_reg[x].indexVal;
+        }
+        g_reg[pc].indexVal += 2;
+    }
     switch (ins.ins71.cmd)
     {
     case 0b0000010: // Branch unconditional
         printDebug("\n0000 001a | BR     ");
-        br(ins.ins71.a);
+        g_reg[pc].indexVal = ins.ins71.address;
         break;
     case 0b0000011: // Branch if less than or equal to
         printDebug("\n0000 011a | BRLE   ");
         if (g_statFlag[Z] | g_statFlag[N]) {
-            br(ins.ins71.a);
+            g_reg[pc].indexVal = ins.ins71.address;
         }
         break;
     case 0b0000100: // Branch if less than
         printDebug("\n0000 100a | BRLT   ");
         if (g_statFlag[N]) {
-            br(ins.ins71.a);
+            g_reg[pc].indexVal = ins.ins71.address;
         }
         break;
     case 0b0000101: // Branch if equal to
         printDebug("\n0000 101a | BREQ   ");
         if (g_statFlag[Z]) {
-            br(ins.ins71.a);
+            g_reg[pc].indexVal = ins.ins71.address;
         }
         break;
     case 0b0000110: // Branch if not equal to
         printDebug("\n0000 110a | BRNE   ");
         if (!g_statFlag[Z]) {
-            br(ins.ins71.a);
+            g_reg[pc].indexVal = ins.ins71.address;
         }
         break;
     case 0b0000111: // Branch if greater than or equal to
         printDebug("\n0000 111a | BRGE   ");
         if (!g_statFlag[N] | g_statFlag[Z]) {
-            br(ins.ins71.a);
+            g_reg[pc].indexVal = ins.ins71.address;
         }
         break;
     case 0b0001000: // Branch if greater than
         printDebug("\n0001 000a | BRGT   ");
         if (!g_statFlag[N] & !g_statFlag[Z]) {
-            br(ins.ins71.a);
+            g_reg[pc].indexVal = ins.ins71.address;
         }
         break;
     case 0b0001001: // Branch if V
         printDebug("\n0001 001a | BRV    ");
         if (g_statFlag[V]) {
-            br(ins.ins71.a);
+            g_reg[pc].indexVal = ins.ins71.address;
         }
         break;
     case 0b0001010: // Branch if C
         printDebug("\n0001 010a | BRC    ");
         if (g_statFlag[C]) {
-            br(ins.ins71.a);
+            g_reg[pc].indexVal = ins.ins71.address;
         }
         break;
     case 0b0001011: // Call subrotine 
@@ -286,12 +293,7 @@ int cmd7(instruction ins) {
         temp = g_reg[pc];
         g_reg[pc].indexVal += 2;
         spPushWord(g_reg[pc]);
-        if (ins.ins71.a == 0) {
-            g_reg[pc].hilo.hi = g_memory[temp.indexVal++];
-            g_reg[pc].hilo.lo = g_memory[temp.indexVal];
-        } else {
-            g_reg[pc].indexVal =  regIndexed(temp, g_reg[x].intVal);
-        }
+        g_reg[pc].indexVal = ins.ins71.address;
         break;
     case 0b0001100: // Bitwise invert r
         printDebug("\n0001 100r | NOTr   ");
@@ -366,7 +368,7 @@ int cmd5(instruction ins) {
         printDebug("\n0001 1aaa | NOP    ");
         error("I don't know what this command does");
         break;
-    case 0b00110: // Decimal input trap         N Z V                   ***************************************
+    case 0b00110: // Decimal input trap
         printDebug("\n0011 0aaa | DECI   ");
         if (ins.ins53.aaa == 0b000) {
             error("Invalid trap addressing mode.");
@@ -410,11 +412,10 @@ int cmd5(instruction ins) {
         break;
     case 0b01010: // Character output
         printDebug("\n0101 0aaa | CHARO [");
-        setAAAMode(ins.ins53.aaa, ins);
         if (ins.ins53.aaa == 0) {
-            cout << to_string(ins.opSpec.hilo.lo);
+            cout << char(ins.opSpec.hilo.lo);
         } else {
-            cout << g_memory[ins.ins8.address];
+            cout << char(g_memory[ins.ins8.address]);
         }
         printDebug("]");
         break;
@@ -430,7 +431,7 @@ int cmd5(instruction ins) {
         break;
     case 0b01101: // Subtract from stack pointer (SP)
         printDebug("\n0110 1aaa | SUBSP  ");
-        g_reg[sp].indexVal = addShorts(ins.opSpec.imedData, twosComplement(g_reg[sp].indexVal));
+        g_reg[sp].indexVal = addShorts(g_reg[sp].indexVal, twosComplement(ins.opSpec.imedData));
         break;
     default:
         break;
@@ -466,8 +467,9 @@ int cmd4(instruction ins) {
             g_reg[ins.ins413.r].intVal = g_reg[ins.ins413.r].intVal | temp.intVal;
             setNZ(g_reg[ins.ins413.r].intVal);
             break;
-        case 0b1011: // Compare r                                                               XXXXXXXX           
+        case 0b1011: // Compare r
             printDebug("\n1011 raaa | CPr    ");
+            addShorts(g_reg[ins.ins413.r].indexVal, twosComplement(temp.intVal));
             break;
         case 0b1100: // load r from memory          
             printDebug("\n1100 raaa | LDr    ");
@@ -505,24 +507,6 @@ void error(string message) {
     g_theEnd = true;
 }
 
-void br(int r) {
-    switch (r)
-    {
-    case 0:
-        {
-            int address = g_reg[pc].indexVal;
-            g_reg[pc].hilo.hi = g_memory[address++];
-            g_reg[pc].hilo.lo = g_memory[address];
-        }
-        break;
-    case 1:
-        g_reg[pc].indexVal = g_reg[x].intVal;
-        break;
-    default:
-        break;
-    }
-}
-
 int asciiCharHexToInt(char ch) {
     int tmp;
     stringstream ss;
@@ -558,8 +542,7 @@ void setAAAMode(int aaa, instruction &ins) {
         break;
     case 0b011: // Stack-relative
         setAAAMode(0b000, temp);
-        ins.opSpec.hilo.hi = g_memory[g_reg[sp].indexVal + temp.ins8.address++];
-        ins.opSpec.hilo.lo = g_memory[g_reg[sp].indexVal + temp.ins8.address];
+        ins.opSpec.address = g_reg[sp].indexVal + temp.opSpec.imedData;
         break;
     case 0b100: // Stack-relative deferred
         setAAAMode(0b011, temp);
@@ -617,14 +600,14 @@ void spPushWord(registers data){
     g_memory[--g_reg[sp].indexVal] = data.hilo.hi;
 }
 
-unsigned short int regIndexed(registers temp, int offset) {
-    registers index;
-    index.hilo.hi = g_memory[temp.indexVal++];
-    index.hilo.lo = g_memory[temp.indexVal];
-    // cout << endl << to_string(g_memory[index.indexVal + offset] * 0x100 + g_memory[index.indexVal + offset + 1]);
-    // cout << endl << to_string(g_memory[index.indexVal + offset + 1]);
-    return g_memory[index.indexVal + offset] * 0x100 + g_memory[index.indexVal + offset + 1];
-}
+// unsigned short int regIndexed(registers temp, int offset) {
+//     registers index;
+//     index.hilo.hi = g_memory[temp.indexVal++];
+//     index.hilo.lo = g_memory[temp.indexVal];
+//     // cout << endl << to_string(g_memory[index.indexVal + offset] * 0x100 + g_memory[index.indexVal + offset + 1]);
+//     // cout << endl << to_string(g_memory[index.indexVal + offset + 1]);
+//     return g_memory[index.indexVal + offset] * 0x100 + g_memory[index.indexVal + offset + 1];
+// }
 
 void setNZ(short int short1) {
     g_statFlag[N] = short1 < 0;
@@ -669,10 +652,34 @@ void dumpMem(string startEnd) {
     cout << endl << endl;
 }
 
+void printSp() {
+    int start = g_reg[sp].indexVal;
+    if ((start % 8) != 0) {
+        start = (start / 8) * 8;
+    }
+    int end = g_spStart;
+    if ((end  % 8) != 0) {
+        end = (((end / 8) + 1) * 8);
+    }
+    for (int i = start; i < end; i++) {
+        if ((i % 8) == 0) {
+            if (i != start) {
+                cout << "\n\t\t\t\t\t";
+            }
+            cout << intToHexAscii(i, 4) << " |";
+        }
+        cout <<  " " << intToHexAscii(g_memory[i],2);
+    }
+    cout << endl;
+}
+
 void dumpRegs() {
     if (g_silent) return;
+    if (!g_debugMode) {
+        cout << "\t\t";
+    }
     cout << "\t|| Registers:"
-    << "  a = 0x" << intToHexAscii(g_reg[a].indexVal, 4)
+    << "\ta = 0x" << intToHexAscii(g_reg[a].indexVal, 4)
     << "  x = 0x" << intToHexAscii(g_reg[x].indexVal, 4)
     << " sp = 0x" << intToHexAscii(g_reg[sp].indexVal, 4)
     << " pc = 0x" << intToHexAscii(g_reg[pc].indexVal, 4)
@@ -681,7 +688,9 @@ void dumpRegs() {
     << "  Z = " << g_statFlag[Z]
     << "  V = " << g_statFlag[V]
     << "  C = " << g_statFlag[C]
-    << endl;
+    << "\n\t\t\t|| Stack:\t";
+    printSp();
+    cout << endl;
 }
 
 char getCharFromInpStr() { 
@@ -691,20 +700,18 @@ char getCharFromInpStr() {
 }
 
 unsigned short int getIntFromInpStr() {
-    int pos = g_inputStr.length();
-    if (g_inputStr.find(' ') != std::string::npos) {
-        pos = g_inputStr.find(' ');
+    int pos = g_inputStr.find_first_not_of(" \n\r\t\f\v");
+    g_inputStr = g_inputStr.substr(pos);
+    long long value = 0;
+    try {
+        value = stoi(g_inputStr);
+        g_inputStr = g_inputStr.substr(to_string(value).length());
+        g_statFlag[N] = (value & 0x8000) == 0x8000;
+        g_statFlag[V] = (value < 0) ^ g_statFlag[N];
+        printDebug("\nDecimal input  [" +  to_string(value) + "]");
+    } catch (invalid_argument err) {
+        error("Invalid DECI input");
     }
-    string temp = g_inputStr.substr(0, pos);
-    long long value = stoi(g_inputStr.substr(0, pos));
-    if (g_inputStr.length() == pos) {
-        g_inputStr = "";
-    } else {
-        g_inputStr = g_inputStr.substr(pos);
-    }
-    g_statFlag[N] = (value & 0x8000) == 0x8000;
-    g_statFlag[V] = (value < 0) ^ g_statFlag[N];
-    printDebug("\nDecimal input  [" +  to_string(value) + "]");
     return value % 0x10000;
 }
 
